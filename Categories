@@ -1,0 +1,163 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Grid3X3, Heart, Brain, Users, DollarSign } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+const categoryData = [
+  {
+    title: "Physical Health",
+    icon: Heart,
+    color: "bg-red-50 border-red-200",
+    iconColor: "text-red-600",
+    items: [
+      { name: "Sleep", description: "Not sleeping well can ruin my whole day" },
+      { name: "Food", description: "Getting the right food is important to stay in reasonable shape and generally feel good" },
+      { name: "Exercise", description: "Same as the above with the added benefit of being more able when older" }
+    ]
+  },
+  {
+    title: "Wealth",
+    icon: DollarSign,
+    color: "bg-yellow-50 border-yellow-200",
+    iconColor: "text-yellow-600",
+    items: [
+      { name: "Income", description: "I need to make enough to cover day to day spending" },
+      { name: "Savings", description: "There will be rainy days and big future expenses to have enough for" },
+      { name: "Outgoings", description: "My spending should be on things that bring me the most happiness in short and long term" }
+    ]
+  },
+  {
+    title: "Relationships",
+    icon: Users,
+    color: "bg-green-50 border-green-200",
+    iconColor: "text-green-600",
+    items: [
+      { name: "Partner/Kids", description: "I should be prioritising the bonds with those I live day in day out with" },
+      { name: "Wider family", description: "These are the people who are with you no matter what and so not something to take for granted" },
+      { name: "Friends", description: "Maintaining relationships with my friends is important for happiness but also removing reliance on family" }
+    ]
+  },
+  {
+    title: "Mental Health",
+    icon: Brain,
+    color: "bg-purple-50 border-purple-200",
+    iconColor: "text-purple-600",
+    items: [
+      { name: "Stress", description: "No point doing everything else if I'm going to be stressed out all the time" },
+      { name: "Self-belief", description: "I need to have enough confidence and belief in myself to do everything else" },
+      { name: "Hope", description: "Looking forward, there must always be hope for the future for inspiration" }
+    ]
+  }
+];
+
+export default function Categories() {
+  return (
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-6xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Grid3X3 className="w-8 h-8 text-sage-500" />
+            <h1 className="text-4xl font-bold text-gray-900">Categories</h1>
+          </div>
+          <p className="text-xl text-sage-600">The framework for being pretty good at life.</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="space-y-8"
+        >
+          <Card className="border-sage-200 shadow-lg">
+            <CardContent className="p-8 md:p-12">
+              <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed space-y-6">
+                <p className="text-xl leading-relaxed">
+                  So after courageously deciding that I wouldn't be sacrificing anything or being the best at anything, it was left to figure out what I wanted to be pretty good at.
+                </p>
+                
+                <div className="my-8">
+                  <p className="mb-4">These needed to be categorised and after a bit of deliberation I came to:</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 my-6">
+                    {categoryData.map((category, index) => (
+                      <div key={category.title} className="text-center">
+                        <div className={`p-3 rounded-lg ${category.color} inline-flex items-center justify-center mb-2`}>
+                          <category.icon className={`w-6 h-6 ${category.iconColor}`} />
+                        </div>
+                        <p className="font-semibold text-gray-800">{category.title}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p>
+                  Now these can be broken down further, wider, deeper, whichever way. But these categories worked for me when looking at the bigger picture of what I wanted in my life.
+                </p>
+
+                <p className="text-lg font-medium text-sage-700">
+                  I wanted to be in pretty good shape, comfortable with money, happily married and overall, just happy.
+                </p>
+
+                <p>
+                  Truth be told, my initial set didn't have mental health in it as I had assumed doing the other 3 would do it. But going through there were some gaps and so thought it couldn't hurt to add.
+                </p>
+
+                <div className="bg-sage-50 border-l-4 border-sage-400 p-6 my-8 rounded-r-lg">
+                  <p className="text-lg font-medium text-gray-800 italic">
+                    If you are applying this to yourself, I would implore you to think of the areas of your life that, if deficient, would make success in other areas redundant in terms of your overall happiness.
+                  </p>
+                </div>
+
+                <p>
+                  These all needed to be broken down further and so these are the categories I came up with, conscious that going too far would defeat the purpose of the exercise of having time to be pretty good at most things.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Category Breakdown Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {categoryData.map((category, index) => (
+              <motion.div
+                key={category.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 + index * 0.1 }}
+              >
+                <Card className={`${category.color} shadow-lg`}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3">
+                      <category.icon className={`w-6 h-6 ${category.iconColor}`} />
+                      <span className="text-xl text-gray-900">{category.title}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {category.items.map((item, itemIndex) => (
+                        <div key={itemIndex}>
+                          <h4 className="font-semibold text-gray-800 mb-1">{item.name}</h4>
+                          <p className="text-gray-600 text-sm leading-relaxed">{item.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+
+          <Card className="border-sage-200 shadow-lg">
+            <CardContent className="p-8">
+              <p className="text-lg text-center text-gray-700 font-medium">
+                Now that we know what I want to be pretty good at, it's time to work out what pretty good means.
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
