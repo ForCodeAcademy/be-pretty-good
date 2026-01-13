@@ -1,0 +1,249 @@
+
+import React, { useState, useEffect, useCallback } from "react";
+import { MoodEntry } from "@/entities/MoodEntry";
+import { MonthlyWealthEntry } from "@/entities/MonthlyWealthEntry";
+import { WeeklyRelationshipEntry } from "@/entities/WeeklyRelationshipEntry";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle, Heart, Sparkles } from "lucide-react";
+import { format, getISOWeek, getYear } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
+import WellnessSelector from "../components/mood/WellnessSelector";
+import MonthlyWealthForm from "../components/mood/MonthlyWealthForm";
+import WeeklyRelationshipForm from "../components/mood/WeeklyRelationshipForm";
+
+export default function MoodTracker() {
+  // Removed ratingValueMap as the WellnessSelector is now assumed to directly return numerical values (1-4 scale)
+  // and these numerical values will be stored directly in the MoodEntry.
+
+  const [ratings, setRatings] = useState({
+    sleep: null, // Will store numerical rating (e.g., 1, 2, 3, 4) or null
+    food: null,
+    exercise: null,
+    stress: null,
+    self_belief: null,
+    hope: null,
+  });
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSubmittedToday, setHasSubmittedToday] = useState(false);
+  const [todayEntry, setTodayEntry] = useState(null);
+
+  const [hasDoneMonthlyCheckin, setHasDoneMonthlyCheckin] = useState(false);
+  const [isLoadingMonthly, setIsLoadingMonthly] = useState(true);
+
+  // New state for weekly check-in
+  const [hasDoneWeeklyCheckin, setHasDoneWeeklyCheckin] = useState(false);
+  const [isLoadingWeekly, setIsLoadingWeekly] = useState(true);
+
+  const today = new Date();
+  const todayString = format(today, "yyyy-MM-dd");
+  const currentMonthYear = format(today, "yyyy-MM");
+  const week = getISOWeek(today);
+  const year = getYear(today);
+  const currentWeekYear = `${year}-${week.toString().padStart(2, '0')}`;
+
+  const checkEntries = useCallback(async () => {
+    // Check for daily entry
+    const dailyEntries = await MoodEntry.filter({ date: todayString });
+    if (dailyEntries.length > 0) {
+      setHasSubmittedToday(true);
+      setTodayEntry(dailyEntries[0]);
+    } else {
+      setHasSubmittedToday(false);
+      setTodayEntry(null);
+    }
+
+    // Check for monthly wealth entry
+    setIsLoadingMonthly(true);
+    const monthlyEntries = await MonthlyWealthEntry.filter({ month_year: currentMonthYear });
+    setHasDoneMonthlyCheckin(monthlyEntries.length > 0);
+    setIsLoadingMonthly(false);
+    
+    // Check for weekly relationship entry
+    setIsLoadingWeekly(true);
+    const weeklyEntries = await WeeklyRelationshipEntry.filter({ week_year: currentWeekYear });
+    setHasDoneWeeklyCheckin(weeklyEntries.length > 0);
+    setIsLoadingWeekly(false);
+
+  }, [todayString, currentMonthYear, currentWeekYear]);
+
+  useEffect(() => {
+    checkEntries();
+  }, [checkEntries]);
+
+  const handleRatingChange = (category, rating) => {
+    // Rating is expected to be a numerical value (1-4) directly from WellnessSelector
+    setRatings(prev => ({
+      ...prev,
+      [category]: rating
+    }));
+  };
+
+  const isFormComplete = () => {
+    return Object.values(ratings).every(rating => rating !== null);
+  };
+
+  const handleSubmit = async () => {
+    if (!isFormComplete()) return;
+    
+    setIsSubmitting(true);
+    
+    try {
+      // Ratings state now directly contains numerical values (1-4) to be stored
+      const entry = await MoodEntry.create({
+        ...ratings, // Use numerical ratings directly for database storage
+        notes: notes.trim() || undefined,
+        date: todayString
+      });
+      
+      setHasSubmittedToday(true);
+      setTodayEntry(entry);
+      
+      // Reset form
+      setRatings({
+        sleep: null,
+        food: null,
+        exercise: null,
+        stress: null,
+        self_belief: null,
+        hope: null,
+      });
+      setNotes("");
+    } catch (error) {
+      console.error("Error saving wellness entry:", error);
+    }
+    
+    setIsSubmitting(false);
+  };
+
+  const getAverageRating = (entry) => {
+    if (!entry) return 0;
+    // Assuming entry values (sleep, food, etc.) are already on a 1-4 scale.
+    const physicalHealth = (entry.sleep + entry.food + entry.exercise) / 3;
+    const mentalHealth = (entry.stress + entry.self_belief + entry.hope) / 3;
+    const sum = physicalHealth + mentalHealth;
+    return (sum / 2).toFixed(1);
+  };
+
+  return (
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center justify-center gap-2 mb-4"
+          >
+            <Heart className="w-8 h-8 text-sage-500" />
+            <h1 className="text-4xl font-bold text-gray-900">Daily Check-in</h1>
+          </motion.div>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-xl text-sage-600"
+          >
+            {format(new Date(), "EEEE, MMMM d, yyyy")}
+          </motion.p>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {hasSubmittedToday ? (
+            <motion.div
+              key="submitted"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="text-center space-y-8"
+            >
+              <Card className="border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg">
+                <CardContent className="p-8">
+                  <div className="flex flex-col items-center space-y-4">
+                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center">
+                      <CheckCircle className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="text-center">
+                      <h2 className="text-2xl font-semibold text-gray-900 mb-2">
+                        Great job checking in today!
+                      </h2>
+                      <p className="text-sage-600">
+                        Your overall rating: <span className="text-2xl font-bold text-green-600 mx-2">{getAverageRating(todayEntry)}/4</span>
+                      </p>
+                    </div>
+                    {todayEntry?.notes && (
+                      <div className="mt-6 p-4 bg-white rounded-lg border border-green-200 max-w-md">
+                        <p className="text-gray-700 text-sm italic">"{todayEntry.notes}"</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <div className="flex items-center justify-center gap-2 text-sage-600">
+                <Sparkles className="w-5 h-5" />
+                <span>Come back tomorrow for your next check-in</span>
+                <Sparkles className="w-5 h-5" />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="form"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="space-y-12"
+            >
+              {/* Render Weekly Relationship Form if not done this week */}
+              {!isLoadingWeekly && !hasDoneWeeklyCheckin && (
+                <WeeklyRelationshipForm onSubmitted={() => setHasDoneWeeklyCheckin(true)} />
+              )}
+              {/* Render Monthly Wealth Form if not done this month */}
+              {!isLoadingMonthly && !hasDoneMonthlyCheckin && (
+                <MonthlyWealthForm onSubmitted={() => setHasDoneMonthlyCheckin(true)} />
+              )}
+              
+              <Card className="border-sage-200 shadow-lg">
+                <CardContent className="p-8">
+                  <WellnessSelector
+                    ratings={ratings}
+                    onRatingChange={handleRatingChange}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card className="border-sage-200 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="text-center text-gray-900">
+                    Any reflections for today? <span className="text-sage-500">(Optional)</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <Textarea
+                    placeholder="How did today go? What influenced these ratings? Any thoughts or observations..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="min-h-[120px] border-sage-200 focus:border-sage-400 resize-none"
+                  />
+                </CardContent>
+              </Card>
+
+              <div className="text-center">
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!isFormComplete() || isSubmitting}
+                  size="lg"
+                  className="bg-sage-500 hover:bg-sage-600 text-white px-12 py-4 text-lg font-medium rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  {isSubmitting ? "Saving..." : "Save Today's Ratings"}
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
