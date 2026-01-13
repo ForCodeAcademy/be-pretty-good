@@ -1,0 +1,536 @@
+
+import React, { useState, useEffect, useCallback } from "react";
+import { MoodEntry } from "@/entities/MoodEntry";
+import { MonthlyWealthEntry } from "@/entities/MonthlyWealthEntry";
+import { WeeklyRelationshipEntry } from "@/entities/WeeklyRelationshipEntry"; // Added import
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TrendingUp, Calendar, Brain, Users, DollarSign, Moon, Heart } from "lucide-react";
+import { format, subDays, getISOWeek, getYear } from "date-fns"; // Added getISOWeek, getYear
+import { motion } from "framer-motion";
+
+export default function MoodInsights() {
+  const [entries, setEntries] = useState([]);
+  const [wealthEntries, setWealthEntries] = useState({});
+  const [relationshipEntries, setRelationshipEntries] = useState({}); // Added state for weekly relationships
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Helper function to scale a 1-5 value to a 1-4 value
+  // 1-5 range maps to 1-4 range, where 0 remains 0 (no data)
+  const scaleTo1_4 = useCallback((value) => {
+    if (value === 0) return 0; // If original is 0 (no data), scaled is 0
+    // Scale: 1 -> 1, 5 -> 4
+    return 1 + (value - 1) * 0.75; // (4-1)/(5-1) = 3/4 = 0.75
+  }, []);
+
+  const loadData = useCallback(async () => {
+    setIsLoading(true);
+    const dailyData = await MoodEntry.list("-date");
+    const monthlyData = await MonthlyWealthEntry.list();
+    const weeklyData = await WeeklyRelationshipEntry.list(); // Fetch weekly relationship data
+    
+    const wealthMap = monthlyData.reduce((acc, entry) => {
+      // Assuming month_year format is "YYYY-MM"
+      acc[entry.month_year] = entry;
+      return acc;
+    }, {});
+
+    const relationshipMap = weeklyData.reduce((acc, entry) => {
+      // Assuming week_year format is "YYYY-WW" where WW is zero-padded week number
+      acc[entry.week_year] = entry;
+      return acc;
+    }, {});
+
+    setEntries(dailyData);
+    setWealthEntries(wealthMap);
+    setRelationshipEntries(relationshipMap); // Set weekly relationship data
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+  
+  // getWellnessDistribution function is removed as per the change request.
+
+  const getWeeklyTrends = useCallback(() => {
+    const last30Days = Array.from({ length: 30 }, (_, i) => subDays(new Date(), 29 - i));
+
+    return last30Days.map(date => {
+      const dateString = format(date, "yyyy-MM-dd");
+      const dayEntries = entries.filter(entry => entry.date === dateString);
+      
+      // Get weekly relationships for the current date
+      const week = getISOWeek(date);
+      const year = getYear(date);
+      const weekYear = `${year}-${week.toString().padStart(2, '0')}`;
+      const weekRelationshipData = relationshipEntries[weekYear];
+      const relationships = weekRelationshipData ? (((weekRelationshipData.partner_kids ?? 0) + (weekRelationshipData.wider_family ?? 0) + (weekRelationshipData.friends ?? 0)) / 3) : 0;
+
+      // Get monthly wealth for the current date
+      const monthYear = format(date, "yyyy-MM");
+      const monthWealthData = wealthEntries[monthYear];
+      const wealth = monthWealthData ? (((monthWealthData.income ?? 0) + (monthWealthData.savings ?? 0) + (monthWealthData.outgoings ?? 0)) / 3) : 0;
+
+      if (dayEntries.length === 0) {
+        return {
+          date: format(date, "MMM d"),
+          physical: 0,
+          mental: 0,
+          relationships: scaleTo1_4(relationships), // Scale weekly relationship data
+          wealth: scaleTo1_4(wealth), // Scale monthly wealth data
+          entries: 0
+        };
+      }
+
+      const entry = dayEntries[0]; // Assuming one entry per day
+      const physicalHealth = ((entry.sleep ?? 0) + (entry.food ?? 0) + (entry.exercise ?? 0)) / 3;
+      const mentalHealth = ((entry.stress ?? 0) + (entry.self_belief ?? 0) + (entry.hope ?? 0)) / 3;
+      
+      return {
+        date: format(date, "MMM d"),
+        physical: scaleTo1_4(physicalHealth), // Scale physical health
+        mental: scaleTo1_4(mentalHealth), // Scale mental health
+        relationships: scaleTo1_4(relationships), // Scale weekly relationship data
+        wealth: scaleTo1_4(wealth), // Scale monthly wealth data
+        entries: 1
+      };
+    });
+  }, [entries, relationshipEntries, wealthEntries, scaleTo1_4]);
+
+  const getInsights = useCallback(() => {
+    // Return null if there's no data for any category
+    if (entries.length === 0 && Object.keys(wealthEntries).length === 0 && Object.keys(relationshipEntries).length === 0) return null;
+
+    const totals = entries.reduce((acc, entry) => {
+      const physicalHealth = ((entry.sleep ?? 0) + (entry.food ?? 0) + (entry.exercise ?? 0)) / 3;
+      acc.physical += scaleTo1_4(physicalHealth);
+
+      const mentalHealth = ((entry.stress ?? 0) + (entry.self_belief ?? 0) + (entry.hope ?? 0)) / 3;
+      acc.mental += scaleTo1_4(mentalHealth);
+      return acc;
+    }, { physical: 0, mental: 0 });
+
+    // Calculate average for weekly relationships, scaling values
+    const weeklyRelationshipValues = Object.values(relationshipEntries);
+    const relationshipsAvg = weeklyRelationshipValues.length > 0
+        ? weeklyRelationshipValues.reduce((sum, e) => {
+            const relAvg = ((e.partner_kids ?? 0) + (e.wider_family ?? 0) + (e.friends ?? 0)) / 3;
+            return sum + relAvg;
+          }, 0) / weeklyRelationshipValues.length
+        : 0;
+
+    // Calculate average for monthly wealth, scaling values
+    const monthlyWealthValues = Object.values(wealthEntries);
+    const wealthAvg = monthlyWealthValues.length > 0 
+      ? monthlyWealthValues.reduce((sum, e) => {
+          const wealthAvg = ((e.income ?? 0) + (e.savings ?? 0) + (e.outgoings ?? 0)) / 3;
+          return sum + wealthAvg;
+        }, 0) / monthlyWealthValues.length
+      : 0;
+      
+    const averages = {
+      physical: entries.length > 0 ? (totals.physical / entries.length).toFixed(1) : "0.0",
+      mental: entries.length > 0 ? (totals.mental / entries.length).toFixed(1) : "0.0",
+      relationships: relationshipsAvg.toFixed(1), // Use unscaled weekly average (1-5 range)
+      wealth: wealthAvg.toFixed(1), // Use unscaled monthly average (1-5 range)
+    };
+
+    return { 
+      totalDays: entries.length, 
+      totalWeeklyRelationships: weeklyRelationshipValues.length,
+      totalMonthlyWealth: monthlyWealthValues.length,
+      ...averages 
+    };
+  }, [entries, relationshipEntries, wealthEntries, scaleTo1_4]);
+
+  const getLatestScores = useCallback(() => {
+    // Get latest daily entry for physical and mental health
+    const latestDailyEntry = entries.length > 0 ? entries[0] : null; // entries are sorted by -date
+    
+    let physicalHealthRaw = 0;
+    let mentalHealthRaw = 0;
+    let hasDailyData = false;
+    
+    if (latestDailyEntry) {
+      physicalHealthRaw = ((latestDailyEntry.sleep ?? 0) + (latestDailyEntry.food ?? 0) + (latestDailyEntry.exercise ?? 0)) / 3;
+      mentalHealthRaw = ((latestDailyEntry.stress ?? 0) + (latestDailyEntry.self_belief ?? 0) + (latestDailyEntry.hope ?? 0)) / 3;
+      hasDailyData = true;
+    }
+
+    // Get latest weekly relationship entry
+    const weeklyRelationshipEntriesArray = Object.entries(relationshipEntries);
+    let relationshipsRaw = 0;
+    let hasWeeklyData = false;
+    if (weeklyRelationshipEntriesArray.length > 0) {
+      // Sort by week_year to get the latest (e.g., "2023-52" is later than "2023-01")
+      const sortedWeekly = weeklyRelationshipEntriesArray.sort(([keyA], [keyB]) => keyB.localeCompare(keyA));
+      const latestWeeklyEntry = sortedWeekly[0][1];
+      relationshipsRaw = (((latestWeeklyEntry.partner_kids ?? 0) + (latestWeeklyEntry.wider_family ?? 0) + (latestWeeklyEntry.friends ?? 0)) / 3);
+      hasWeeklyData = true;
+    }
+
+    // Get latest monthly wealth entry
+    const monthlyWealthEntriesArray = Object.entries(wealthEntries);
+    let wealthRaw = 0;
+    let hasMonthlyData = false;
+    if (monthlyWealthEntriesArray.length > 0) {
+      // Sort by month_year to get the latest (e.g., "2023-12" is later than "2023-01")
+      const sortedMonthly = monthlyWealthEntriesArray.sort(([keyA], [keyB]) => keyB.localeCompare(keyA));
+      const latestMonthlyEntry = sortedMonthly[0][1];
+      wealthRaw = (((latestMonthlyEntry.income ?? 0) + (latestMonthlyEntry.savings ?? 0) + (latestMonthlyEntry.outgoings ?? 0)) / 3);
+      hasMonthlyData = true;
+    }
+
+    return {
+      physicalHealth: scaleTo1_4(physicalHealthRaw).toFixed(1),
+      mentalHealth: scaleTo1_4(mentalHealthRaw).toFixed(1),
+      relationships: scaleTo1_4(relationshipsRaw).toFixed(1),
+      wealth: scaleTo1_4(wealthRaw).toFixed(1),
+      hasData: hasDailyData || hasWeeklyData || hasMonthlyData
+    };
+  }, [entries, relationshipEntries, wealthEntries, scaleTo1_4]);
+
+  const getAreasForImprovement = useCallback(() => {
+    const improvements = [];
+
+    // Check latest daily entry for ratings of 1 or 2
+    const latestDailyEntry = entries.length > 0 ? entries[0] : null;
+    if (latestDailyEntry) {
+      const dailyCategories = [
+        { key: 'sleep', name: 'Sleep', type: 'Physical Health' },
+        { key: 'food', name: 'Food', type: 'Physical Health' },
+        { key: 'exercise', name: 'Exercise', type: 'Physical Health' },
+        { key: 'stress', name: 'Stress', type: 'Mental Health' },
+        { key: 'self_belief', name: 'Self-Belief', type: 'Mental Health' },
+        { key: 'hope', name: 'Hope', type: 'Mental Health' }
+      ];
+
+      dailyCategories.forEach(category => {
+        const rating = latestDailyEntry[category.key];
+        if (rating === 1 || rating === 2) {
+          improvements.push({
+            area: category.name,
+            category: category.type,
+            rating: rating,
+            ratingLabel: rating === 1 ? 'Bad' : 'Okay'
+          });
+        }
+      });
+    }
+
+    // Check latest weekly relationship entry for ratings of 1 or 2
+    const weeklyEntries = Object.entries(relationshipEntries);
+    if (weeklyEntries.length > 0) {
+      const sortedWeekly = weeklyEntries.sort(([a], [b]) => b.localeCompare(a));
+      const latestWeeklyEntry = sortedWeekly[0][1];
+      
+      const weeklyCategories = [
+        { key: 'partner_kids', name: 'Partner/Kids', type: 'Relationships' },
+        { key: 'wider_family', name: 'Wider Family', type: 'Relationships' },
+        { key: 'friends', name: 'Friends', type: 'Relationships' }
+      ];
+
+      weeklyCategories.forEach(category => {
+        const rating = latestWeeklyEntry[category.key];
+        if (rating === 1 || rating === 2) {
+          improvements.push({
+            area: category.name,
+            category: category.type,
+            rating: rating,
+            ratingLabel: rating === 1 ? 'Bad' : 'Okay'
+          });
+        }
+      });
+    }
+
+    // Check latest monthly wealth entry for ratings of 1 or 2
+    const monthlyEntries = Object.entries(wealthEntries);
+    if (monthlyEntries.length > 0) {
+      const sortedMonthly = monthlyEntries.sort(([a], [b]) => b.localeCompare(a));
+      const latestMonthlyEntry = sortedMonthly[0][1];
+      
+      const monthlyCategories = [
+        { key: 'income', name: 'Income', type: 'Wealth' },
+        { key: 'savings', name: 'Savings', type: 'Wealth' },
+        { key: 'outgoings', name: 'Outgoings', type: 'Wealth' }
+      ];
+
+      monthlyCategories.forEach(category => {
+        const rating = latestMonthlyEntry[category.key];
+        if (rating === 1 || rating === 2) {
+          improvements.push({
+            area: category.name,
+            category: category.type,
+            rating: rating,
+            ratingLabel: rating === 1 ? 'Bad' : 'Okay'
+          });
+        }
+      });
+    }
+
+    return improvements.sort((a, b) => a.rating - b.rating);
+  }, [entries, relationshipEntries, wealthEntries]);
+
+  const insights = getInsights();
+  const latestScores = getLatestScores();
+  const weeklyTrends = getWeeklyTrends();
+  const areasForImprovement = getAreasForImprovement();
+
+  return (
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3 mb-2">
+            <TrendingUp className="w-8 h-8 text-sage-500" />
+            Wellness Insights
+          </h1>
+          <p className="text-sage-600">Discover patterns across all areas of your life</p>
+        </div>
+
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-gray-200 animate-pulse rounded-2xl h-32" />
+            ))}
+          </div>
+        ) : !insights ? ( // Check if insights is null (no daily, weekly, or monthly data)
+          <div className="text-center py-12">
+            <Moon className="w-16 h-16 text-sage-300 mx-auto mb-4" />
+            <h3 className="text-xl font-medium text-gray-900 mb-2">No data yet</h3>
+            <p className="text-sage-600">Start tracking your wellness to see insights here</p>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Days Tracked - Top Row */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 gap-6"
+            >
+              <Card className="border-sage-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="text-center">
+                      <p className="text-sm text-sage-600">Days Tracked</p>
+                      <p className="text-3xl font-bold text-gray-900">{insights.totalDays}</p>
+                      <p className="text-xs text-sage-600">entries</p>
+                    </div>
+                    <Calendar className="w-10 h-10 text-sage-400" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Key Metrics */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            >
+              <Card className="border-sage-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-sage-600 mb-1">Physical Health</p>
+                      <p className="text-2xl font-bold text-gray-900">{insights.physical}/4</p>
+                      <p className="text-xs text-sage-600">average</p>
+                    </div>
+                    <Heart className="w-8 h-8 text-red-400" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-sage-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-sage-600 mb-1">Mental Health</p>
+                      <p className="text-2xl font-bold text-gray-900">{insights.mental}/4</p>
+                      <p className="text-xs text-sage-600">average</p>
+                    </div>
+                    <Brain className="w-8 h-8 text-purple-400" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-sage-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-sage-600 mb-1">Relationships</p>
+                      <p className="text-2xl font-bold text-gray-900">{insights.relationships}/4</p>
+                      <p className="text-xs text-sage-600">{insights.totalWeeklyRelationships} week{insights.totalWeeklyRelationships !== 1 ? 's' : ''}</p>
+                    </div>
+                    <Users className="w-8 h-8 text-green-400" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-sage-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-sage-600 mb-1">Wealth</p>
+                      <p className="text-2xl font-bold text-gray-900">{insights.wealth}/4</p>
+                      <p className="text-xs text-sage-600">{insights.totalMonthlyWealth} month{insights.totalMonthlyWealth !== 1 ? 's' : ''}</p>
+                    </div>
+                    <DollarSign className="w-8 h-8 text-yellow-400" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Weekly Trends */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <Card className="border-sage-200">
+                  <CardHeader>
+                    <CardTitle className="text-gray-900">30-Day Wellness Trends</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <LineChart data={weeklyTrends}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="date" stroke="#6b7280" />
+                        <YAxis domain={[0, 4]} stroke="#6b7280" /> {/* Changed YAxis domain to 0-4 */}
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'white', 
+                            border: '1px solid #d1d5db', 
+                            borderRadius: '8px' 
+                          }} 
+                        />
+                        <Line type="monotone" dataKey="physical" stroke="#ef4444" strokeWidth={2} name="Physical Health" />
+                        <Line type="monotone" dataKey="mental" stroke="#8b5cf6" strokeWidth={2} name="Mental Health" />
+                        <Line type="monotone" dataKey="relationships" stroke="#059669" strokeWidth={2} name="Relationships" />
+                        <Line type="monotone" dataKey="wealth" stroke="#f59e0b" strokeWidth={2} name="Wealth" />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              {/* Latest Scores */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Card className="border-sage-200">
+                  <CardHeader>
+                    <CardTitle className="text-gray-900">Latest Scores</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {latestScores.hasData ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Heart className="w-5 h-5 text-red-500" />
+                            <span className="font-medium text-gray-900">Physical Health</span>
+                          </div>
+                          <span className="text-xl font-bold text-red-600">{latestScores.physicalHealth}/4</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Brain className="w-5 h-5 text-purple-500" />
+                            <span className="font-medium text-gray-900">Mental Health</span>
+                          </div>
+                          <span className="text-xl font-bold text-purple-600">{latestScores.mentalHealth}/4</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Users className="w-5 h-5 text-green-500" />
+                            <span className="font-medium text-gray-900">Relationships</span>
+                          </div>
+                          <span className="text-xl font-bold text-green-600">{latestScores.relationships}/4</span>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <DollarSign className="w-5 h-5 text-yellow-500" />
+                            <span className="font-medium text-gray-900">Wealth</span>
+                          </div>
+                          <span className="text-xl font-bold text-yellow-600">{latestScores.wealth}/4</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-sage-600">
+                        <p>No recent scores available</p>
+                        <p className="text-sm mt-1">Complete some check-ins to see your latest scores here</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+
+            {/* Areas for Improvement */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+            >
+              <Card className="border-sage-200">
+                <CardHeader>
+                  <CardTitle className="text-gray-900 flex items-center gap-3">
+                    <TrendingUp className="w-5 h-5 text-sage-500" />
+                    Areas for Improvement
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {areasForImprovement.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead>
+                          <tr className="border-b border-gray-200">
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700">Category</th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700">Area</th>
+                            <th className="text-left py-3 px-4 font-semibold text-gray-700">Current Rating</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {areasForImprovement.map((item, index) => (
+                            <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                              <td className="py-3 px-4">
+                                <span className="text-sm font-medium text-gray-600">{item.category}</span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="text-sm text-gray-900">{item.area}</span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  item.rating === 1 ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                                }`}>
+                                  {item.ratingLabel} ({item.rating}/4)
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-sage-600">
+                      <p className="text-lg font-medium">🎉 Great job!</p>
+                      <p className="text-sm mt-1">All your latest ratings are Pretty Good or Excellent</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
