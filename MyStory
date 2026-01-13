@@ -1,0 +1,114 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { BookOpen } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+
+export default function MyStory() {
+  return (
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <BookOpen className="w-8 h-8 text-sage-500" />
+            <h1 className="text-4xl font-bold text-gray-900">My Story</h1>
+          </div>
+          <p className="text-xl text-sage-600">A journey of self-reflection and finding balance.</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="border-sage-200 shadow-lg">
+            <CardContent className="p-8 md:p-12">
+              <div className="prose prose-lg max-w-none text-gray-700 leading-relaxed space-y-6">
+                <p className="text-xl leading-relaxed">
+                  I, like many others, had taken the opportunity during COVID to listen to more and more books and podcasts on how to better myself. What better time for a bit of self-reflection and improvement.
+                </p>
+                <p className="text-lg font-medium text-sage-700">
+                  Initially, I was inspired.
+                </p>
+                <p>
+                  All seemed possible with the right level of protein, index funds, emotional intelligence and meditation. If I just follow the guidance, I will become this super rich, awesome human.
+                </p>
+                <p>
+                  However, the more I listened, the more I wondered how these experts had the time for everything. And more importantly, how would I find the time for everything?
+                </p>
+                <div className="my-8">
+                  <p className="text-lg font-medium text-sage-700 mb-4">
+                    Then, one day in the early months of 2022, listening to a podcaster, the penny dropped.
+                  </p>
+                  <p>
+                    He was discussing how, in the early days of his business, he sacrificed his personal relationships so he could be free to travel around the US. He continued on how his success would not have been possible without doing so but now that he was older and established, he was dedicating more time to these relationships.
+                  </p>
+                </div>
+                <p>
+                  Now this is no dig at this guy, I was listening to him because I loved his book. However, at that moment, a flood of other examples came to my mind.
+                </p>
+                <p>
+                  Think of all the athletes that sacrifice everything for a gold medal, the entrepreneurs for a billion dollar company, the fitness influencers for a six pack. 
+                </p>
+                <p className="text-lg font-medium text-gray-800">
+                  Is it really possible to have it all? Will being the best at one thing make me happy?
+                </p>
+                <p className="text-lg text-sage-700 font-medium">
+                  Probably not.
+                </p>
+                <div className="bg-warm-50 border-l-4 border-sage-400 p-6 my-8 rounded-r-lg">
+                  <p className="text-lg font-medium text-gray-800 italic">
+                    As the adage goes that I had previously ignored:
+                  </p>
+                  <p className="text-xl font-semibold text-sage-700 mt-2">
+                    "You can have anything you want, but not everything you want."
+                  </p>
+                </div>
+                <p>
+                  Thinking about it now, this is something obvious that we all know but it's not the way we are communicated to. We are constantly told how to improve our lives but rarely what to sacrifice in order to do that.
+                </p>
+                <div className="my-8 p-6 bg-sage-50 rounded-lg border border-sage-200">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">
+                    This begs the question: what am I willing to sacrifice?
+                  </h3>
+                  <p className="mb-4">
+                    Well.. nothing. Not to the extent that I want to completely remove it from my life. If anything, I was willing to sacrifice being the best at something to being pretty good at it.
+                  </p>
+                  <p>
+                    In fact, the areas I want to improve are the areas that I'm worst at, not the best.
+                  </p>
+                </div>
+                <p>
+                  This was at odds with what I had been listening to.
+                </p>
+                <p>
+                  In fact there was only one occurrence I could think of. One freakonomics episode citing how you are only as good as your weakest player in soccer (football) and so teams should invest in improving that one position.
+                </p>
+                <div className="my-8">
+                  <p className="mb-4">
+                    Maybe that's what I should do. Improve the weakest areas of my life. 
+                  </p>
+                  <p className="text-lg font-medium text-gray-800">
+                    But what even are those areas and what's actually important to me?
+                  </p>
+                </div>
+                <p>
+                  These turned out to be hard questions to answer and so I started to write it all down.
+                </p>
+                <div className="mt-8 p-6 bg-gradient-to-r from-sage-50 to-warm-50 rounded-lg border border-sage-200">
+                  <p className="text-lg leading-relaxed">
+                    In the age of social media, I have decided to share these in a bid to help anyone else out there who is made to feel inadequate about being 
+                    <span className="font-semibold text-sage-700"> "pretty good"</span>.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
