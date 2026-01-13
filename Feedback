@@ -1,0 +1,70 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
+import { MessageSquare } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Feedback } from '@/entities/Feedback';
+import FeedbackForm from '../components/story/FeedbackForm';
+import FeedbackList from '../components/story/FeedbackList';
+
+export default function FeedbackPage() {
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadFeedback = useCallback(async () => {
+    const feedback = await Feedback.list('-created_date');
+    setFeedbackList(feedback);
+  }, []);
+
+  useEffect(() => {
+    loadFeedback();
+  }, [loadFeedback]);
+
+  const handleFeedbackSubmit = async (data) => {
+    setIsSubmitting(true);
+    try {
+      await Feedback.create(data);
+      await loadFeedback();
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+    }
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="max-w-4xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <MessageSquare className="w-8 h-8 text-sage-500" />
+            <h1 className="text-4xl font-bold text-gray-900">Feedback & Reflections</h1>
+          </div>
+          <p className="text-xl text-sage-600">Join the conversation and share your thoughts.</p>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="border-sage-200 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-3 text-2xl text-gray-900">
+                Share Your Story
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-8">
+              <FeedbackForm onSubmit={handleFeedbackSubmit} isSubmitting={isSubmitting} />
+              <Separator className="bg-sage-200" />
+              <FeedbackList feedbackItems={feedbackList} />
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
